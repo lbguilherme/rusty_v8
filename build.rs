@@ -12,6 +12,18 @@ use which::which;
 
 fn main() {
   println!("cargo:rerun-if-changed=src/binding.cc");
+  println!("cargo:rerun-if-changed=patches.txt");
+
+  if env::var_os("CARGO_PRIMARY_PACKAGE").is_none() {
+    assert!(Command::new("bash")
+      .args(&[
+        "-c",
+        "for patch in $(cat patches.txt); do curl -L $patch | git apply; done"
+      ])
+      .status()
+      .unwrap()
+      .success());
+  }
 
   // Detect if trybuild tests are being compiled.
   let is_trybuild = env::var_os("DENO_TRYBUILD").is_some();
