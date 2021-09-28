@@ -38,6 +38,13 @@ jobs:
           fetch-depth: 10
           submodules: recursive
 
+      - name: Apply patches
+        run: |
+          for patch in $(cat patches.txt); do
+            echo $patch
+            curl -L $patch | git apply
+          done
+
       - name: Install rust
         uses: hecrj/setup-rust-action@v1
         with:
