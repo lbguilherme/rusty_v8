@@ -14,11 +14,11 @@ fn main() {
   println!("cargo:rerun-if-changed=src/binding.cc");
   println!("cargo:rerun-if-changed=patches.txt");
 
-  if env::var_os("CARGO_PRIMARY_PACKAGE").is_none() {
+  if env::var_os("CARGO_FEATURE_APPLY_PATCHES").is_some() {
     assert!(Command::new("bash")
       .args(&[
         "-c",
-        "for patch in $(cat patches.txt); do curl -L $patch | git apply; done"
+        "git reset --hard; for patch in $(cat patches.txt); do curl -L $patch | git apply; done"
       ])
       .status()
       .unwrap()

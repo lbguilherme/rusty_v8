@@ -74,6 +74,9 @@ exclude = [
  "!v8/tools/testrunner/utils/dump_build_config.py",
 ]
 
+[features]
+apply-patches = []
+
 [dependencies]
 lazy_static = "1.4.0"
 libc = "0.2.93"
