@@ -6,7 +6,7 @@ readme = "README.md"
 authors = ["the Deno authors"]
 license = "MIT"
 edition = "2018"
-repository = "https://github.com/denoland/rusty_v8"
+repository = "https://github.com/lbguilherme/rusty_v8"
 
 exclude = [
  # To keep the package under the 10mb limit imposed by crates.io we exclude
