@@ -7,46 +7,18 @@ jobs:
     name: ${{ matrix.config.variant }} ${{ matrix.config.target }}
     if: |
       github.event_name == 'push' ||
-      !startsWith(github.event.pull_request.head.label, 'denoland:')
+      !startsWith(github.event.pull_request.head.label, 'lbguilherme:')
     runs-on: ${{ matrix.config.os }}
     timeout-minutes: 120
     strategy:
-      # Always run main branch builds to completion. This allows the cache to
-      # stay mostly up-to-date in situations where a single job fails due to
-      # e.g. a flaky test.
-      # Don't fast-fail on tag build because publishing binaries shouldn't be
-      # prevented if 'cargo publish' fails (which can be a false negative).
-      fail-fast:
-        ${{ github.event_name == 'pull_request' || (github.ref !=
-        'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')) }}
       matrix:
         config:
-          - os: macOS-latest
-            target: x86_64-apple-darwin
-            variant: debug
-
-          - os: macOS-latest
-            target: x86_64-apple-darwin
-            variant: release
-
-          - os: ${{ github.repository == 'denoland/rusty_v8' && 'ubuntu-latest-xl' || 'ubuntu-18.04' }}
+          - os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             variant: debug
 
-          - os: ${{ github.repository == 'denoland/rusty_v8' && 'ubuntu-latest-xl' || 'ubuntu-18.04' }}
+          - os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
-            variant: release
-
-          - os: windows-2019
-            target: x86_64-pc-windows-msvc
-            variant: release # Note: we do not support windows debug builds.
-
-          - os: ${{ github.repository == 'denoland/rusty_v8' && 'ubuntu-latest-xl' || 'ubuntu-18.04' }}
-            target: aarch64-unknown-linux-gnu
-            variant: debug
-
-          - os: ${{ github.repository == 'denoland/rusty_v8' && 'ubuntu-latest-xl' || 'ubuntu-18.04' }}
-            target: aarch64-unknown-linux-gnu
             variant: release
 
     env:
@@ -78,23 +50,6 @@ jobs:
           python-version: 2.7.x
           architecture: x64
 
-      - name: Install cross compilation toolchain
-        if: matrix.config.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          rustup target add aarch64-unknown-linux-gnu
-
-          sudo apt update
-          sudo apt install -yq --no-install-suggests --no-install-recommends \
-            binfmt-support g++-5-aarch64-linux-gnu g++-5-multilib \
-            gcc-5-aarch64-linux-gnu libc6-arm64-cross qemu qemu-user \
-            qemu-user-binfmt
-
-          sudo ln -s /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 \
-                     /lib/ld-linux-aarch64.so.1
-
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=/usr/bin/aarch64-linux-gnu-gcc-5" >> ${GITHUB_ENV}
-          echo "QEMU_LD_PREFIX=/usr/aarch64-linux-gnu" >> ${GITHUB_ENV}
-
       - name: Write git_submodule_status.txt
         run: git submodule status --recursive > git_submodule_status.txt
 
@@ -116,26 +71,6 @@ jobs:
             cargo-${{ matrix.config.target }}-${{ matrix.config.variant }}-${{ hashFiles('Cargo.lock', 'build.rs', 'git_submodule_status.txt') }}
           restore-keys:
             cargo-${{ matrix.config.target }}-${{ matrix.config.variant }}-
-
-
-        # It seems that the 'target' directory does not always get restored
-        # from cache correctly on MacOS. In the build log we see the following:
-        #
-        #   Fresh serde_derive v1.0.115
-        #
-        # But a little while after that Cargo aborts because 'serde_derive' is
-        # now nowhere to be found. We're not the only ones experiencing this,
-        # see https://github.com/actions-rs/cargo/issues/111.
-        #
-        #   error[E0463]: can't find crate for `serde_derive`
-        #   ##[error]   --> /Users/runner/.cargo/registry/src/github.com-
-        #       |           1ecc6299db9ec823/serde-1.0.115/src/lib.rs:285:1
-        #       |
-        #   285 | extern crate serde_derive;
-        #       | ^^^^^^^^^^^^^^^^^^^^^^^^^^ can't find crate
-      - name: Work around MacOS + Cargo + Github Actions cache bug
-        if: runner.os == 'macOS'
-        run: cargo clean -p serde_derive
 
       - name: Install and start sccache
         shell: pwsh
@@ -183,34 +118,10 @@ jobs:
         # https://github.com/softprops/action-gh-release/issues/139
         uses: softprops/action-gh-release@59c3b4891632ff9a897f99a91d7bc557467a3a22
         if: >-
-          github.repository == 'denoland/rusty_v8' &&
+          github.repository == 'lbguilherme/rusty_v8' &&
           startsWith(github.ref, 'refs/tags/')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: target/${{ env.LIB_NAME }}_${{ matrix.config.variant }}_${{ matrix.config.target }}.${{ env.LIB_EXT }}
-
-      # TODO: add clang-format and maybe cpplint.
-
-      - name: Cargo Package
-        if: >-
-          github.repository == 'denoland/rusty_v8' &&
-          startsWith(matrix.config.target , 'x86_64') &&
-          matrix.config.variant == 'debug' &&
-          runner.os == 'Linux'
-        run: cargo package -vv --locked
-
-      - name: Publish
-        # Only publish on x64 linux when there's a git tag:
-        if: >-
-          startsWith(github.ref, 'refs/tags/') &&
-          github.repository == 'denoland/rusty_v8' &&
-          startsWith(matrix.config.target , 'x86_64') &&
-          matrix.config.variant == 'debug' &&
-          runner.os == 'Linux'
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish -vv
 
       - name: Stop sccache
         if: always()
