@@ -415,9 +415,9 @@ impl Isolate {
     weak
   }
 
-  fn drop_annex(&self) {
+  pub unsafe fn drop_annex(&self) {
     let annex_ptr = self.get_annex();
-    let annex_arc = unsafe { Arc::from_raw(annex_ptr) };
+    let annex_arc = Arc::from_raw(annex_ptr);
     drop(annex_arc);
   }
 
